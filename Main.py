@@ -1,11 +1,13 @@
-from pprint import pprint
-from PyQt6 import QtCore
-from PyQt6.QtGui import QImage, QPixmap, QKeyEvent, QAction, QKeySequence
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow, QApplication, QFileDialog, QTableWidgetItem, QLabel
-import dedup, sys
+from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtWidgets import QMainWindow, QApplication, QFileDialog, QTableWidgetItem, QHBoxLayout, \
+    QLayout
+
+import dedup
+import sys
 from FileService import FileService
 from ImageLabel import ImageLabel
+from iconribbon.IconRibbon import IconRibbon
 
 
 class DeDup(QMainWindow, dedup.Ui_MainWindow):
@@ -25,6 +27,9 @@ class DeDup(QMainWindow, dedup.Ui_MainWindow):
         self.files_to_delete = []
         self.deleteButton.clicked.connect(self.delete_button_clicked)
         self.actual_list_of_all_duplicates = []
+        self.ribbonLayout = QHBoxLayout(self.scrollAreaWidgetContents)
+        self.ribbonLayout.setSizeConstraint(QLayout.SizeConstraint.SetNoConstraint)
+        self.icon_ribbon = IconRibbon(self.ribbonLayout)
 
     def browse_for_folder(self):
         file = str(
@@ -66,26 +71,12 @@ class DeDup(QMainWindow, dedup.Ui_MainWindow):
         self.add_image_icons()
 
     def add_image_icons(self):
-        i = 0
         for dup_files in self.actual_list_of_all_duplicates:
             self.add_icon_button(dup_files)
-            if i > 20:
-                break
-            i += 1
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(9, 600, 541 + self.icon_button_x, 100))
         self.searchProgress.hide()
 
     def add_icon_button(self, dup_files):
-        image = QImage(dup_files[0].name)
-        imageLabel = QLabel()
-        imageLabel.setParent(self.scrollAreaWidgetContents)
-        imageLabel.setStyleSheet("QLabel { border: 1px solid red }")
-        imageLabel.setGeometry(QtCore.QRect(self.icon_button_x, 10, 60, 60))
-        imageLabel.setScaledContents(True)
-        imageLabel.setPixmap(QPixmap.fromImage(image))
-        imageLabel.setVisible(True)
-        imageLabel.mousePressEvent = lambda e: self.image_clicked(dup_files)
-        self.icon_button_x += 70
+        self.icon_ribbon.add_icon(dup_files[0].name, lambda e: self.image_clicked(dup_files))
 
     def image_clicked(self, dup_files):
         if self.first_image_displayed:
@@ -138,8 +129,6 @@ class DeDup(QMainWindow, dedup.Ui_MainWindow):
             file = self.files_to_delete.pop(0)
             FileService.delete_file(file)
             self.remove_file_from_list(file)
-            self.displayGridFrame.hide()
-
 
     def remove_file_from_list(self, file):
         _redraw_ribbon = False
@@ -156,6 +145,7 @@ class DeDup(QMainWindow, dedup.Ui_MainWindow):
 
             if len(self.actual_list_of_all_duplicates[i]) == 1:
                 self.actual_list_of_all_duplicates.pop(i)
+                self.displayGridFrame.hide()
                 _redraw_ribbon = True
                 _index = i
                 break
@@ -163,15 +153,7 @@ class DeDup(QMainWindow, dedup.Ui_MainWindow):
             self.remove_icon_from_ribbon(_index)
 
     def remove_icon_from_ribbon(self, index):
-        _count = 0
-        for w in self.scrollAreaWidgetContents.children():
-            if _count == index:
-                w.close()
-            elif _count > index:
-                w.setGeometry(QtCore.QRect(w.geometry().left() - 70, 10, 60, 60))
-            _count += 1
-        self.icon_button_x -= 70
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(9, 600, 541 + self.icon_button_x, 100))
+        self.icon_ribbon.remove_icon(index)
 
 
 app = QApplication(sys.argv)
